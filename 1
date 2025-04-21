@@ -1,0 +1,97 @@
+import time
+import random
+import logging
+
+# 设置日志配置，输出到文件
+logging.basicConfig(
+    filename='arbitrage_simulation.log',  # 日志文件名
+    level=logging.INFO,  # 日志级别，INFO 表示记录所有的信息
+    format='%(asctime)s - %(levelname)s - %(message)s'  # 日志格式
+)
+
+# 假设你有 1000 USDT 可以进行套利模拟
+initial_funds = 1000
+
+# 设定最大买入量（例如：DEX 上最大可以买入 900 BAI）
+max_buy_amount = 900
+
+# 设定 DEX 和 Bitget 上的交易手续费（假设手续费是 0.1%）
+dex_fee_percentage = 0.001  # 0.1%手续费
+bitget_fee_percentage = 0.001  # 0.1%手续费
+
+# 模拟 DEX 和 Bitget 上的 BAI/USDT 交易对价格（这里只是示例数据，实际要根据 API 获取）
+def get_dex_price():
+    # 模拟获取到的价格，例如：1 BAI = 1.05 USDT
+    dex_price = 1.05
+    return dex_price
+
+def get_bitget_price():
+    # 模拟获取到的价格，例如：1 BAI = 1.10 USDT
+    bitget_price = 1.10
+    return bitget_price
+
+# 计算滑点影响（假设滑点与交易量成正比）
+def calculate_slippage(bai_amount, base_price):
+    slippage_factor = 0.0005  # 每增加 1 BAI，价格滑动 0.05%
+    slippage = bai_amount * slippage_factor * base_price
+    return slippage
+
+# 模拟从 DEX 买入 BAI
+def simulate_buy_on_dex(funds):
+    dex_price = get_dex_price()
+    # 计算滑点
+    slippage = calculate_slippage(funds / dex_price, dex_price)
+    # 模拟买入的价格，考虑滑点
+    adjusted_dex_price = dex_price + slippage / (funds / dex_price)
+    
+    # 买入 BAI
+    bai_amount = funds / adjusted_dex_price
+    logging.info(f"在 DEX 上以 {adjusted_dex_price:.2f} USDT 的价格买入 {bai_amount:.2f} BAI（考虑滑点：{slippage:.4f} USDT）")
+    return bai_amount, adjusted_dex_price
+
+# 模拟在 Bitget 上卖出 BAI
+def simulate_sell_on_bitget(bai_amount):
+    bitget_price = get_bitget_price()
+    # 卖出时考虑手续费
+    sell_price_after_fee = bitget_price * (1 - bitget_fee_percentage)
+    
+    # 卖出 BAI 获取 USDT
+    funds_received = bai_amount * sell_price_after_fee
+    logging.info(f"在 Bitget 上以 {sell_price_after_fee:.2f} USDT 的价格卖出 {bai_amount:.2f} BAI，获得 {funds_received:.2f} USDT（扣除手续费）")
+    return funds_received
+
+# 主程序：进行套利模拟
+def run_arbitrage_simulation():
+    logging.info("开始进行套利模拟...\n")
+    
+    # 从 DEX 买入
+    bai_amount, dex_buy_price = simulate_buy_on_dex(initial_funds)
+    
+    # 在 Bitget 卖出
+    final_funds = simulate_sell_on_bitget(bai_amount)
+    
+    # 扣除 DEX 买入时的手续费
+    dex_buy_price_after_fee = dex_buy_price * (1 + dex_fee_percentage)
+    funds_spent_on_dex = bai_amount * dex_buy_price_after_fee
+
+    # 计算利润
+    profit = final_funds - funds_spent_on_dex
+    logging.info(f"\n套利结束！")
+    logging.info(f"初始资金：{initial_funds} USDT")
+    logging.info(f"DEX 买入花费：{funds_spent_on_dex:.2f} USDT (包括手续费)")
+    logging.info(f"最终资金：{final_funds:.2f} USDT")
+    logging.info(f"套利利润：{profit:.2f} USDT\n")
+    
+    if profit > 0:
+        logging.info("有利润！可以进行实际交易！")
+    else:
+        logging.info("没有利润，暂时不进行交易。")
+
+# 每隔一定时间进行一次模拟套利
+def start_arbitrage_simulation(interval_seconds=10):
+    while True:
+        run_arbitrage_simulation()
+        time.sleep(interval_seconds)  # 每隔一定时间执行一次
+
+# 启动套利模拟，每10秒查询一次
+start_arbitrage_simulation(interval_seconds=10)
